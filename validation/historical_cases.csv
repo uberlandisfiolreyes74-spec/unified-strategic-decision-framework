@@ -1,0 +1,5 @@
+sector,case_name,ii,fd,success
+Technology,Kodak digital refusal,0.85,0.92,0
+Technology,Microsoft Windows Phone,0.78,0.85,0
+Technology,Netflix Qwikster,0.35,0.48,1
+Healthcare,Example case,0.61,0.68,1
