@@ -1,0 +1,58 @@
+import numpy as np
+from scipy.stats import norm
+
+def evaluate_options(options, ii_score, risk_free=0.02):
+    """
+    Evalúa opciones usando MSCA v6 con ajuste por lock-in.
+
+    Parámetros:
+    - options: lista de dict, cada uno con 'name' y payoffs:
+        {'name': 'Op1', 'opt': 0.30, 'base': 0.10, 'pess': -0.05}
+    - ii_score: float, índice de irreversibilidad de SMA-03
+    - risk_free: float, tasa libre de riesgo (ej. 0.02 para 2%)
+
+    Retorna:
+    - ranked: lista de dict con métricas y score
+    """
+    prob = [0.20, 0.60, 0.20]
+    ranked = []
+
+    for opt in options:
+        ev = (prob[0]*opt['opt'] + prob[1]*opt['base'] + prob[2]*opt['pess'])
+        returns = np.array([opt['opt'], opt['base'], opt['pess']])
+        std = np.std(returns, ddof=1)
+
+        if std > 0:
+            p_success = norm.cdf(ev / std)
+        else:
+            p_success = 1.0 if ev >= 0 else 0.0
+
+        severe_loss = sum(p for r, p in zip(returns, prob) if r < -0.20)
+
+        sharpe = (ev - risk_free) / std if std > 0 else 0.0
+
+        base_rev_cost = 0.5
+        lock_mult = 1 + ii_score**2
+        adj_rev_cost = base_rev_cost * lock_mult
+
+        if ii_score > 0.70:
+            alpha, beta, gamma = 0.30, 0.20, 0.50
+        elif ii_score > 0.50:
+            alpha, beta, gamma = 0.40, 0.30, 0.30
+        else:
+            alpha, beta, gamma = 0.50, 0.30, 0.20
+
+        score = alpha*ev + beta*p_success - gamma*adj_rev_cost
+
+        ranked.append({
+            'name': opt['name'],
+            'E[V]': ev,
+            'P(success)': p_success,
+            'P(severe_loss)': severe_loss,
+            'Sharpe': sharpe,
+            'Reversibility_Cost': adj_rev_cost,
+            'Score': score
+        })
+
+    ranked.sort(key=lambda x: x['Score'], reverse=True)
+    return ranked
